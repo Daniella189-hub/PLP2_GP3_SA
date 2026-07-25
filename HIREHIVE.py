@@ -225,8 +225,13 @@ class JobPortal(Entity):
         print("\n--- Load Your Profile ---")
         email = input("Email: ")
         password = input("Password: ")
+        
+        try:
+            user = User.load_by_email(self.db, email)
+        except DatabaseError as exc:
+            print(f"Database error: {exc}")
+            return None
 
-        user = User.load_by_email(self.db, email)
         if user is None:
             print("No profile found with that email.")
             return None
@@ -241,13 +246,21 @@ class JobPortal(Entity):
 
 
 if __name__ == "__main__":
+    try:
+        db = Database()
+    except DatabaseError as exc:
+        print(f"Could not start: {exc}")
+        print("See errors.log for the full details.")
+        raise SystemExit(1)
     portal = JobPortal()
+
     while True:
         print("\n=== HireHive ===")
         print("1. Create Profile")
         print("2. Load Profile (Login)")
         print("3. Exit")
         choice = input("Choose an option: ")
+
 
         if choice == "1":
             portal.create_profile()

@@ -258,7 +258,17 @@ if __name__ == "__main__":
         print("\n=== HireHive ===")
         print("1. Create Profile")
         print("2. Load Profile (Login)")
-        print("3. Exit")
+        print("3. Display Jobs")
+        print("4. Filter Jobs")
+        print("5. Apply for Job")
+        print("6. View My Applications")
+        print("7. Withdraw Application")
+        print("8. View Notifications")
+        print("9. Send Job Alerts")
+        print("10. Admin Review Applications")
+        print("11. Delete Account")
+        print("12. Logout")
+        print("13. Exit")
         choice = input("Choose an option: ")
 
 
@@ -267,6 +277,28 @@ if __name__ == "__main__":
         elif choice == "2":
             portal.load_profile()
         elif choice == "3":
+            portal.display_jobs()
+        elif choice == "4":
+            portal.filter_jobs()
+        elif choice == "5":
+            portal.apply_for_job()
+        elif choice == "6":
+            portal.view_my_applications()
+        elif choice == "7":
+            portal.withdraw_application()
+        elif choice == "8":
+            portal.view_notifications()
+            portal.mark_notifications_read()
+        elif choice == "9":
+            portal.send_job_alerts()
+        elif choice == "10":
+            portal.admin_review_applications()
+        elif choice == "11":
+            portal.delete_account()
+        elif choice == "12":
+            portal.current_user = None
+            print("Logged out.")
+        elif choice == "13":
             portal.db.close()
             break
         else:

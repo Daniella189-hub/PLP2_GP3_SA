@@ -58,10 +58,37 @@ class Database:
         self._cursor.close()
         if self._conn.is_connected():
             self._conn.close()
+            print("Database connected successfully and exited")
 
 
-class User:
-    def __init__(self, full_name, email, password, skills="", location="", role="job_seeker"):
+# -------------------------------------------------------------------------
+# Models (OOP: inheritance +encapsulation via @property)
+# -------------------------------------------------------------------------
+
+class Entity: 
+    """Base class - share id/cretaed_at handling for evry model."""
+    def __init__(self, id=None, created_at=None):
+        self.id = id
+        self.created_at = created_at or datetime.now().isoformat()
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        self.id = value
+    @property
+    def created_at(self):
+        return self._created_at
+
+
+class User():
+class User(Entity):
+     VALID_ROLES = ("job_seeker", "admin")
+    _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+    def __init__(self, full_name, email, password, skills="", location="", role="job_seeker", id=None, created_at=None):
+        super().__init__(id, created_at)
         self.full_name = full_name
         self.email = email
         self.password = password
@@ -69,7 +96,46 @@ class User:
         self.location = location
         self.role = role
 
-class JobPortal:
+    @property
+    def full_name(self):
+        return self._full_name
+
+    @full_name.setter
+    def full_name(self, value):
+        if not value or not value.strip():
+            raise ValueError("Full name cannot be empty.")
+        self._full_name = value.strip()
+
+    @property
+    def email(self):
+        return self._email
+
+    @email.setter
+    def email(self, value):
+        if not value or not self._EMAIL_RE.match(value.strip()):
+            raise ValueError(f"'{value}' is not a valid email address.")
+        self._email = value.strip().lower()
+
+    @property
+    def password_hash(self):
+        return self._password_hash
+
+    @property
+    def role(self):
+        return self._role
+
+    @role.setter
+    def role(self, value):
+        if value not in self.VALID_ROLES:
+            raise ValueError(f"role must be one of {self.VALID_ROLES}")
+        self._role = value
+
+    @property
+    def is_admin(self):
+        return self._role == "admin"
+
+
+class JobPortal(Entity):
     def __init__(self):
         self.db =Database()
         self.current_user = None

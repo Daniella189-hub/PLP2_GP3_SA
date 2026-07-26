@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
-import hashlib
+import os
 import re
+import shutil
+import hashlib
 from datetime import datetime
 
 import mysql.connector
@@ -617,3 +619,4 @@ if __name__ == "__main__":
             break
         else:
             print("Invalid option, try again.")
+

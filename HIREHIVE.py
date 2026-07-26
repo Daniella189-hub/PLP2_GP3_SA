@@ -125,9 +125,16 @@ class User(Entity):
 
     @password.setter
     def password(self, value):
+        if isinstance(value, str) and len(value) == 64 and \
+                re.fullmatch(r"[0-9a-f]{64}", value):
+            self._password_hash = value
+            return
         if not value or len(value) < 4:
             raise ValueError("Password must be at least 4 characters.")
         self._password_hash = hashlib.sha256(value.encode()).hexdigest()
+    @property
+    def password(self):
+        return self._password_hash
 
     @property
     def role(self):
@@ -154,10 +161,11 @@ class User(Entity):
         
 ## ------CLASS JOB------
 class Job(Entity):
-       """
-    Matches the columns actually created in Schema.sql and expected by
-    JobRepository in repositories.py: title, company, location, category,
-    description, requirements, posted_at.
+
+    """
+      Matches the columns actually created in Schema.sql and expected by
+      JobRepository in repositories.py: title, company, location, category,
+       description, requirements, posted_at.
     """
     VALID_STATUSES = ("open", "closed")
 
@@ -253,8 +261,7 @@ class JobPortal(Entity):
         self.db = Database()
         self.users = UserRepository(self.db, User)
         self.jobs = JobRepository(self.db, Job)
-        self.applications = ApplicationRepository(self.db, JobApplication)
-        self.notifications = NotificationRepository(self.db, Notification)
+        self.applications = ApplicationRepository(self.db, applications)
         self.current_user = None
 
     def validate_input(self, value, field_name):
@@ -311,7 +318,7 @@ class JobPortal(Entity):
         print(f"Welcome back, {user.full_name}!")
         return user
 # --3rd choice--
- def display_jobs(self):
+    def display_jobs(self):
         print("\n===== Available Jobs =====")
         try:
             jobs = self.jobs.get_all()

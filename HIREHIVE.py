@@ -230,7 +230,7 @@ class Job(Entity):
         return f"Job({self.title!r}, {self.company!r}, {self.location!r})"
 
 # -----CLASS JOBAPPLICATION------
-class applications(Entity):
+class JobApplication(Entity):
     VALID_STATUSES = ("pending", "accepted", "rejected", "withdrawn")
 
     def __init__(self, user_id, job_id, status="pending", cv_path=None,
@@ -395,7 +395,7 @@ class JobPortal(Entity):
         cv_path = input("Enter path to your CV file (or press Enter to skip): ").strip()
         cv_path = cv_path if cv_path else None
 
-        new_application = applications(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
+        new_application = JobApplication(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
 
         self.applications.create(new_application)
         print(f"Application submitted for '{selected_job.title}' at {selected_job.company}!")
@@ -417,7 +417,7 @@ class JobPortal(Entity):
 
 
 # ------CLASS NOTIFICATION--------
-class notifications(Entity):
+class Notification(Entity):
 
     def __init__(self, user_id, message, is_read=False, id=None, created_at=None):
         super().__init__(id, created_at)

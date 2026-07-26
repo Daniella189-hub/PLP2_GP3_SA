@@ -342,12 +342,6 @@ class JobPortal(Entity):
             print(f"Database error: {e}")
             return
 
-        results = []
-        for job in jobs:
-            if location_filter and location_filter not in job.location.lower():
-                continue
-            results.append(job)
-
         if not results:
             print("No jobs match your filters.")
             return
@@ -385,10 +379,11 @@ class JobPortal(Entity):
             return
 
 
-        if self.applications.get_by_id is not None and any(
+        already_applied = any(
             a["job_id"] == job_id
             for a in self.applications.get_for_user(self.current_user.id)
-        ):
+        )
+        if already_applied:
             print("You already applied for this job.")
             return
 

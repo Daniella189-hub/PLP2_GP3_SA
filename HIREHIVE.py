@@ -7,12 +7,20 @@ from datetime import datetime
 import mysql.connector
 from mysql.connector import Error as MySQLError
 
+from Repositories import (
+    UserRepository,
+    JobRepository,
+    ApplicationRepository,
+    NotificationRepository,
+)
+
+
 DB_CONFIG = {
         "host": "mysql-23b50bcb-alustudent-6939.c.aivencloud.com",
         "port": 23055,
         "user": "avnadmin",
         "password": "AVNS_ywwObOm4Kx5b-QmW0AQ",
-        "database": "defaultdb",
+        "database": "job_portal",
 }
 
 
@@ -182,6 +190,7 @@ class User(Entity):
             plain_password.encode()).hexdigest()
 
     def __repr__(self):
+
         return f"User({self.full_name!r}, {self.email!r}, role={self.role!r})"
 
 
@@ -197,44 +206,17 @@ class JobApplication(Entity):
         self.cv_path = cv_path
         self.decision_at = decision_at
 
-    def save(self, db):
-        query = (
-            "INSERT INTO applications (user_id, job_id, status, cv_path) "
-            "VALUES (%s, %s, %s, %s)"
-        )
-        params = (self.user_id, self.job_id, self.status, self.cv_path)
-        db.execute(query, params, commit=True)
-        self.id = db.last_insert_id()
-        return self
-
-    @classmethod
-    def already_applied(cls, db, user_id, job_id):
-        query = "SELECT id FROM applications WHERE user_id = %s AND job_id = %s"
-        row = db.fetchone(query, (user_id, job_id))
-        return row is not None
-
-    @classmethod
-    def load_by_user(cls, db, user_id):
-        query = "SELECT * FROM applications WHERE user_id = %s"
-        rows = db.fetchall(query, (user_id,))
-        return [cls._from_row(row) for row in rows]
-
-    @classmethod
-    def _from_row(cls, row):
-        app = cls.__new__(cls)
-        Entity.__init__(app, id=row["id"], created_at=row["applied_at"])
-        app.user_id = row["user_id"]
-        app.job_id = row["job_id"]
-        app.status = row["status"]
-        app.cv_path = row.get("cv_path")
-        app.decision_at = row.get("decision_at")
-        return app
-
     def __repr__(self):
-        return f"JobApplication(user_id={self.user_id}, job_id={self.job_id}, status={self.status!r})"
+        return (f"JobApplication(user_id={self.user_id}, "
+                f"job_id={self.job_id}, status={self.status!r})")
+
 class JobPortal(Entity):
     def __init__(self):
         self.db = Database()
+        self.users = UserRepository(self.db, User)
+        self.jobs = JobRepository(self.db, Job)
+        self.applications = ApplicationRepository(self.db, JobApplication)
+        self.notifications = NotificationRepository(self.db, Notification)
         self.current_user = None
 
     def validate_input(self, value, field_name):
@@ -260,7 +242,7 @@ class JobPortal(Entity):
                 location=location,
                 role="job_seeker"
             )
-            new_user.save(self.db)
+            self.users.create(new_user)
             self.current_user = new_user
             print(f"Profile created successfully! Welcome, {new_user.full_name}.")
         except ValueError as e:
@@ -274,7 +256,7 @@ class JobPortal(Entity):
         password = input("Password: ")
         
         try:
-            user = User.load_by_email(self.db, email)
+            user = self.users.get_by_email(email.strip().lower())
         except DatabaseError as exc:
             print(f"Database error: {exc}")
             return None
@@ -290,14 +272,15 @@ class JobPortal(Entity):
         self.current_user = user
         print(f"Welcome back, {user.full_name}!")
         return user
-def apply_for_job(self):
+
+    def apply_for_job(self):
         print("\n--- Apply for a Job ---")
 
         if self.current_user is None:
             print("You must be logged in to apply for a job.")
             return
 
-        jobs = Job.load_all(self.db)
+        jobs = self.jobs.get_all()
         if not jobs:
             print("No jobs available to apply for.")
             return
@@ -311,12 +294,16 @@ def apply_for_job(self):
             print("Invalid input. Please enter a number.")
             return
 
-        selected_job = Job.load_by_id(self.db, job_id)
+        selected_job = self.jobs.get_by_id(job_id)
         if selected_job is None:
             print("Job not found.")
             return
 
-        if JobApplication.already_applied(self.db, self.current_user.id, job_id):
+
+        if self.applications.get_by_id is not None and any(
+            a["job_id"] == job_id
+            for a in self.applications.get_for_user(self.current_user.id)
+        ):
             print("You already applied for this job.")
             return
 
@@ -324,7 +311,8 @@ def apply_for_job(self):
         cv_path = cv_path if cv_path else None
 
         new_application = JobApplication(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
-        new_application.save(self.db)
+
+        self.applications.create(new_application)
         print(f"Application submitted for '{selected_job.title}' at {selected_job.company}!")
 
     def view_my_applications(self):
@@ -334,26 +322,21 @@ def apply_for_job(self):
             print("You must be logged in to view your applications.")
             return
 
-        my_apps = JobApplication.load_by_user(self.db, self.current_user.id)
+        my_apps = self.applications.get_for_user(self.current_user.id)
         if not my_apps:
             print("You haven't applied to any jobs yet.")
             return
 
         for app in my_apps:
-            job = Job.load_by_id(self.db, app.job_id)
-            job_title = job.title if job else "Unknown"
-            job_company = job.company if job else "Unknown"
-            print(f"Application ID: {app.id} | {job_title} at {job_company} | Status: {app.status}")
+            print(f"Application ID: {app['id']} | {app['job_title']} at {app['job_company']} | Status: {app['status']}")
 
 
 if __name__ == "__main__":
     try:
-        db = Database()
+        portal =JobPortal()
     except DatabaseError as exc:
         print(f"Could not start: {exc}")
-        print("See errors.log for the full details.")
         raise SystemExit(1)
-    portal = JobPortal()
 
     while True:
         print("\n=== HireHive ===")
@@ -370,7 +353,7 @@ if __name__ == "__main__":
         print("11. Delete Account")
         print("12. Logout")
         print("13. Exit")
-        hoice = input("Choose an option: ")
+        choice = input("Choose an option: ")
 
 
         if choice == "1":

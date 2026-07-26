@@ -18,11 +18,11 @@ from Repositories import (
 
 
 DB_CONFIG = {
-        "host": "mysql-23b50bcb-alustudent-6939.c.aivencloud.com",
-        "port": 23055,
-        "user": "avnadmin",
-        "password": "your_password_here",
-        "database": "job_portal",
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", ""),
+    "database": os.getenv("DB_NAME", "job_portal"),
 }
 
 
@@ -619,4 +619,3 @@ if __name__ == "__main__":
             break
         else:
             print("Invalid option, try again.")
-

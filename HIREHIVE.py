@@ -16,6 +16,12 @@ from Repositories import (
     NotificationRepository,
 )
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; falls back to real environment variables
+
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -86,6 +92,7 @@ class Entity:
     def created_at(self, value):
         self._created_at = value
 
+
 # -----CLASS USER-----
 class User(Entity):
     VALID_ROLES = ("job_seeker", "admin")
@@ -155,11 +162,7 @@ class User(Entity):
 
 ## ------CLASS JOB------
 class Job(Entity):
-    """
-    Matches the columns actually created in Schema.sql and expected by
-    JobRepository in repositories.py: title, company, location, category,
-    description, requirements, posted_at.
-    """
+  
     VALID_STATUSES = ("open", "closed")
 
     def __init__(self, title, company, location, category="",
@@ -231,7 +234,8 @@ class Job(Entity):
     def __repr__(self):
         return f"Job({self.title!r}, {self.company!r}, {self.location!r})"
 
-# -----CLASS JOBAPPLICATION------
+
+# -----CLASS JOB APPLICATION------
 class JobApplication(Entity):
     VALID_STATUSES = ("pending", "accepted", "rejected", "withdrawn")
 
@@ -246,11 +250,11 @@ class JobApplication(Entity):
 
     def __repr__(self):
         return (f"JobApplication(user_id={self.user_id}, "
-               f"job_id={self.job_id}, status={self.status!r})")
+                f"job_id={self.job_id}, status={self.status!r})")
+
 
 # ------CLASS NOTIFICATION--------
 class Notification(Entity):
-
     def __init__(self, user_id, message, is_read=False, id=None, created_at=None):
         super().__init__(id, created_at)
         self.user_id = user_id
@@ -266,8 +270,7 @@ CV_UPLOAD_DIR = "uploaded_cvs"
 ALLOWED_CV_EXTENSIONS = (".pdf", ".doc", ".docx")
 
 
-# ----CLASS PORTAL(connection to the repositories file)------
-
+# ----CLASS PORTAL
 class JobPortal(Entity):
     def __init__(self):
         self.db = Database()
@@ -282,7 +285,8 @@ class JobPortal(Entity):
             print(f"{field_name} cannot be empty.")
             return False
         return True
-# --1st choice--
+
+    # --1st choice--
     def create_profile(self):
         print("\n--- Create Your Profile ---")
         full_name = input("Full name: ")
@@ -307,12 +311,13 @@ class JobPortal(Entity):
             print(f"Could not create profile: {e}")
         except DatabaseError as e:
             print(f"Database error: {e}")
-# --2nd chice--
+
+    # --2nd choice--
     def load_profile(self):
         print("\n--- Load Your Profile ---")
         email = input("Email: ")
         password = input("Password: ")
-        
+
         try:
             user = self.users.get_by_email(email.strip().lower())
         except DatabaseError as exc:
@@ -330,7 +335,8 @@ class JobPortal(Entity):
         self.current_user = user
         print(f"Welcome back, {user.full_name}!")
         return user
-# --3rd choice--
+
+    # --3rd choice--
     def display_jobs(self):
         print("\n===== Available Jobs =====")
         try:
@@ -346,13 +352,12 @@ class JobPortal(Entity):
         for job in jobs:
             print(f"\n[{job.id}] {job.title} — {job.company}")
             print(f"    Location: {job.location}")
-            print(f"    Skills: {job.skills_required}")
             if job.category:
                 print(f"    category: {job.category}")
             if job.description:
                 print(f"    Description: {job.description}")
 
-# --4 filter jobs--
+    # --4th filter jobs--
     def filter_jobs(self):
         print("\n--- Filter Jobs ---")
         location_filter = input("Location (leave blank to skip): ").strip().lower()
@@ -370,7 +375,7 @@ class JobPortal(Entity):
         for job in results:
             print(f"\n[{job.id}] {job.title} — {job.company}")
             print(f"    Location: {job.location}")
-            
+
     # --5th apply for job--
     def apply_for_job(self):
         print("\n--- Apply for a Job ---")
@@ -398,7 +403,6 @@ class JobPortal(Entity):
             print("Job not found.")
             return
 
-
         already_applied = any(
             a["job_id"] == job_id
             for a in self.applications.get_for_user(self.current_user.id)
@@ -410,11 +414,14 @@ class JobPortal(Entity):
         cv_path = input("Enter path to your CV file (or press Enter to skip): ").strip()
         cv_path = cv_path if cv_path else None
 
-        new_application = JobApplication(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
+        new_application = JobApplication(
+            user_id=self.current_user.id, job_id=job_id, cv_path=cv_path
+        )
 
         self.applications.create(new_application)
         print(f"Application submitted for '{selected_job.title}' at {selected_job.company}!")
-# --6th choice--
+
+    # --6th choice--
     def view_my_applications(self):
         print("\n--- My Applications ---")
 
@@ -428,9 +435,10 @@ class JobPortal(Entity):
             return
 
         for app in my_apps:
-            print(f"Application ID: {app['id']} | {app['job_title']} at {app['job_company']} | Status: {app['status']}")
+            print(f"Application ID: {app['id']} | {app['job_title']} at "
+                  f"{app['job_company']} | Status: {app['status']}")
 
-    # --7th withdraw application-- (Desire De Dieu)
+    # --7th withdraw application-- 
     def withdraw_application(self):
         print("\n--- Withdraw an Application ---")
 
@@ -464,6 +472,8 @@ class JobPortal(Entity):
             return
 
         try:
+            # Ownership check (user_id) + only 'pending' applications can be
+            # withdrawn, both enforced in the WHERE clause.
             cursor = self.db.execute(
                 """
                 UPDATE applications
@@ -485,77 +495,58 @@ class JobPortal(Entity):
         else:
             print(f"Application {app_id} has been withdrawn.")
 
-    # --11th delete account permanently-- (Desire De Dieu)
-    def delete_account(self):
-        print("\n--- Delete Account Permanently ---")
-
+    # --8th view notifications--
+    def view_notifications(self):
         if self.current_user is None:
-            print("You must be logged in to delete your account.")
+            print("You need to be logged in to view notifications.")
             return
 
-        print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
-
-        first_confirm = input(
-            "This will permanently delete your account and ALL your "
-            "applications and notifications. Continue? (yes/no): "
-        ).strip().lower()
-        if first_confirm != "yes":
-            print("Account deletion cancelled.")
+        items = self.notifications.get_for_user(self.current_user.id)
+        if not items:
+            print("You have no notifications.")
             return
 
-        email_confirmation = input(
-            "Type your email address to confirm permanent deletion: "
-        ).strip().lower()
-        if email_confirmation != self.current_user.email.lower():
-            print("Email did not match. Account deletion cancelled.")
-            return
+        print("\n--- Notifications ---")
+        for note in items:
+            flag = " " if note.is_read else "*"
+            print(f"[{flag}] {note.created_at} - {note.message}")
+        print("(* = unread)")
 
-        try:
-            self.db.execute(
-                "DELETE FROM users WHERE id = %s",
-                (self.current_user.id,),
-                commit=True,
-            )
-        except DatabaseError as e:
-            print(f"Database error: {e}")
-            return
-
-        print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
-        self.current_user = None
-
-    def upload_cv(self):
+    def mark_notifications_read(self):
         if self.current_user is None:
-            print("You need to be logged in to upload a CV.")
-            return None
+            return
+        self.notifications.mark_all_read(self.current_user.id)
 
-        path = input("Path to your CV file (.pdf, .doc, .docx), or blank to skip: ").strip()
-        if not path:
-            return None
+    # --9th send job alerts--
+    def send_job_alerts(self):
+        if self.current_user is None or not self.current_user.is_admin:
+            print("Only an admin can send job alerts.")
+            return
 
-        if not os.path.isfile(path):
-            print("That file doesn't exist. Please check the path and try again.")
-            return None
+        recent_jobs = self.jobs.most_recent(limit=5)
+        if not recent_jobs:
+            print("No recent jobs to alert users about.")
+            return
 
-        ext = os.path.splitext(path)[1].lower()
-        if ext not in ALLOWED_CV_EXTENSIONS:
-            print(f"Unsupported file type '{ext}'. Allowed types: {ALLOWED_CV_EXTENSIONS}")
-            return None
+        all_users = self.db.fetchall(
+            "SELECT id, skills FROM users WHERE role = %s", ("job_seeker",)
+        )
 
-        os.makedirs(CV_UPLOAD_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
-        dest_path = os.path.join(CV_UPLOAD_DIR, dest_name)
+        sent = 0
+        for user_row in all_users:
+            user_skills = [s.strip().lower() for s in (user_row["skills"] or "").split(",") if s.strip()]
+            if not user_skills:
+                continue
+            for job in recent_jobs:
+                job_text = f"{job.title} {job.category} {job.requirements}".lower()
+                if any(skill in job_text for skill in user_skills):
+                    message = f"New job matching your skills: '{job.title}' at {job.company}."
+                    self.notifications.create(Notification(user_row["id"], message))
+                    sent += 1
 
-        try:
-            shutil.copyfile(path, dest_path)
-        except OSError as exc:
-            print(f"Could not save CV: {exc}")
-            return None
+        print(f"Sent {sent} job alert notification(s).")
 
-        print(f"CV uploaded successfully -> {dest_path}")
-        return dest_path
-
-    # --10 Admin Review Applications--
+    # --10th admin review applications--
     def admin_review_applications(self):
         if self.current_user is None or not self.current_user.is_admin:
             print("Only an admin can review applications.")
@@ -603,63 +594,84 @@ class JobPortal(Entity):
 
         print(f"Application {app_id} marked as {application.status}. Applicant notified.")
 
-    # --8 view notifications-- 
-    def view_notifications(self):
-        """Show the logged-in user's notifications, newest first."""
+    # --11th delete account permanently-- 
+    def delete_account(self):
+        print("\n--- Delete Account Permanently ---")
+
         if self.current_user is None:
-            print("You need to be logged in to view notifications.")
+            print("You must be logged in to delete your account.")
             return
 
-        items = self.notifications.get_for_user(self.current_user.id)
-        if not items:
-            print("You have no notifications.")
+        print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
+
+        first_confirm = input(
+            "This will permanently delete your account and ALL your "
+            "applications and notifications. Continue? (yes/no): "
+        ).strip().lower()
+        if first_confirm != "yes":
+            print("Account deletion cancelled.")
             return
 
-        print("\n--- Notifications ---")
-        for note in items:
-            flag = " " if note.is_read else "*"
-            print(f"[{flag}] {note.created_at} - {note.message}")
-        print("(* = unread)")
+        email_confirmation = input(
+            "Type your email address to confirm permanent deletion: "
+        ).strip().lower()
+        if email_confirmation != self.current_user.email.lower():
+            print("Email did not match. Account deletion cancelled.")
+            return
 
-    # --8 mark_notifications_read:
-    def mark_notifications_read(self):
+        try:
+            # applications.user_id and notifications.user_id both have
+            # ON DELETE CASCADE in schema.sql, so removing the users row
+            # cleans up both automatically. No manual cleanup needed.
+            self.db.execute(
+                "DELETE FROM users WHERE id = %s",
+                (self.current_user.id,),
+                commit=True,
+            )
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return
+
+        print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
+        self.current_user = None
+
+    # --CV upload helper--
+    def upload_cv(self):
         if self.current_user is None:
-            return
-        self.notifications.mark_all_read(self.current_user.id)
+            print("You need to be logged in to upload a CV.")
+            return None
 
-    #--9send job alerts--
-    def send_job_alerts(self):
-        if self.current_user is None or not self.current_user.is_admin:
-            print("Only an admin can send job alerts.")
-            return
+        path = input("Path to your CV file (.pdf, .doc, .docx), or blank to skip: ").strip()
+        if not path:
+            return None
 
-        recent_jobs = self.jobs.most_recent(limit=5)
-        if not recent_jobs:
-            print("No recent jobs to alert users about.")
-            return
+        if not os.path.isfile(path):
+            print("That file doesn't exist. Please check the path and try again.")
+            return None
 
-        all_users = self.db.fetchall(
-            "SELECT id, skills FROM users WHERE role = %s", ("job_seeker",)
-        )
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in ALLOWED_CV_EXTENSIONS:
+            print(f"Unsupported file type '{ext}'. Allowed types: {ALLOWED_CV_EXTENSIONS}")
+            return None
 
-        sent = 0
-        for user_row in all_users:
-            user_skills = [s.strip().lower() for s in (user_row["skills"] or "").split(",") if s.strip()]
-            if not user_skills:
-                continue
-            for job in recent_jobs:
-                job_text = f"{job.title} {job.category} {job.requirements}".lower()
-                if any(skill in job_text for skill in user_skills):
-                    message = f"New job matching your skills: '{job.title}' at {job.company}."
-                    self.notifications.create(Notification(user_row["id"], message))
-                    sent += 1
+        os.makedirs(CV_UPLOAD_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
+        dest_path = os.path.join(CV_UPLOAD_DIR, dest_name)
 
-        print(f"Sent {sent} job alert notification(s).")
+        try:
+            shutil.copyfile(path, dest_path)
+        except OSError as exc:
+            print(f"Could not save CV: {exc}")
+            return None
+
+        print(f"CV uploaded successfully -> {dest_path}")
+        return dest_path
 
 
 if __name__ == "__main__":
     try:
-        portal =JobPortal()
+        portal = JobPortal()
     except DatabaseError as exc:
         print(f"Could not start: {exc}")
         raise SystemExit(1)
@@ -680,7 +692,6 @@ if __name__ == "__main__":
         print("12. Logout")
         print("13. Exit")
         choice = input("Choose an option: ")
-
 
         if choice == "1":
             portal.create_profile()

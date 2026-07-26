@@ -429,6 +429,100 @@ class JobPortal(Entity):
 
         for app in my_apps:
             print(f"Application ID: {app['id']} | {app['job_title']} at {app['job_company']} | Status: {app['status']}")
+
+    # --7th withdraw application-- (Desire De Dieu)
+    def withdraw_application(self):
+        print("\n--- Withdraw an Application ---")
+
+        if self.current_user is None:
+            print("You must be logged in to withdraw an application.")
+            return
+
+        my_apps = self.applications.get_for_user(self.current_user.id)
+        if not my_apps:
+            print("You have no applications to withdraw.")
+            return
+
+        print("\nYour applications:")
+        for app in my_apps:
+            print(f"ID: {app['id']} | {app['job_title']} at "
+                  f"{app['job_company']} | Status: {app['status']}")
+
+        raw_id = input("\nEnter Application ID to withdraw (or blank to cancel): ").strip()
+        if not raw_id:
+            return
+        if not raw_id.isdigit():
+            print("Application ID must be a number.")
+            return
+        app_id = int(raw_id)
+
+        confirm = input(
+            f"Withdraw application {app_id}? This cannot be undone. (yes/no): "
+        ).strip().lower()
+        if confirm != "yes":
+            print("Withdrawal cancelled.")
+            return
+
+        try:
+            cursor = self.db.execute(
+                """
+                UPDATE applications
+                SET status = 'withdrawn', decision_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s AND status = 'pending'
+                """,
+                (app_id, self.current_user.id),
+                commit=True,
+            )
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return
+
+        if cursor.rowcount == 0:
+            print(
+                "[INFO] No matching pending application found under your "
+                "account (it may already be decided, withdrawn, or not yours)."
+            )
+        else:
+            print(f"Application {app_id} has been withdrawn.")
+
+    # --11th delete account permanently-- (Desire De Dieu)
+    def delete_account(self):
+        print("\n--- Delete Account Permanently ---")
+
+        if self.current_user is None:
+            print("You must be logged in to delete your account.")
+            return
+
+        print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
+
+        first_confirm = input(
+            "This will permanently delete your account and ALL your "
+            "applications and notifications. Continue? (yes/no): "
+        ).strip().lower()
+        if first_confirm != "yes":
+            print("Account deletion cancelled.")
+            return
+
+        email_confirmation = input(
+            "Type your email address to confirm permanent deletion: "
+        ).strip().lower()
+        if email_confirmation != self.current_user.email.lower():
+            print("Email did not match. Account deletion cancelled.")
+            return
+
+        try:
+            self.db.execute(
+                "DELETE FROM users WHERE id = %s",
+                (self.current_user.id,),
+                commit=True,
+            )
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return
+
+        print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
+        self.current_user = None
+
     def upload_cv(self):
         if self.current_user is None:
             print("You need to be logged in to upload a CV.")

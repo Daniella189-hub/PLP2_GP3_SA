@@ -183,6 +183,115 @@ class User(Entity):
 
     def __repr__(self):
         return f"User({self.full_name!r}, {self.email!r}, role={self.role!r})"
+class Job(Entity):
+    VALID_STATUSES = ("open", "closed")
+
+    def __init__(self, title, company, location, skills_required,
+                 description="", posted_by=None, status="open",
+                 id=None, created_at=None):
+        super().__init__(id, created_at)
+        self.title = title
+        self.company = company
+        self.location = location
+        self.skills_required = skills_required
+        self.description = description
+        self.posted_by = posted_by
+        self.status = status
+
+    @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, value):
+        if not value or not value.strip():
+            raise ValueError("Job title cannot be empty.")
+        self._title = value.strip()
+
+    @property
+    def company(self):
+        return self._company
+
+    @company.setter
+    def company(self, value):
+        if not value or not value.strip():
+            raise ValueError("Company name cannot be empty.")
+        self._company = value.strip()
+
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, value):
+        if not value or not value.strip():
+            raise ValueError("Location cannot be empty.")
+        self._location = value.strip()
+
+    @property
+    def skills_required(self):
+        return self._skills_required
+
+    @skills_required.setter
+    def skills_required(self, value):
+        self._skills_required = value.strip() if value else ""
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        if value not in self.VALID_STATUSES:
+            raise ValueError(f"status must be one of {self.VALID_STATUSES}")
+        self._status = value
+
+    def skills_as_list(self):
+        return [s.strip().lower() for s in self._skills_required.split(",") if s.strip()]
+
+    def save(self, db):
+        query = (
+            "INSERT INTO jobs "
+            "(title, company, location, skills_required, description, posted_by, status) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        )
+        params = (
+            self.title, self.company, self.location,
+            self.skills_required, self.description, self.posted_by, self.status
+        )
+        db.execute(query, params, commit=True)
+        self.id = db.last_insert_id()
+        return self
+
+    @classmethod
+    def load_by_id(cls, db, job_id):
+        query = "SELECT * FROM jobs WHERE id = %s"
+        row = db.fetchone(query, (job_id,))
+        if row is None:
+            return None
+        return cls._from_row(row)
+
+    @classmethod
+    def load_all_open(cls, db):
+        query = "SELECT * FROM jobs WHERE status = %s ORDER BY created_at DESC"
+        rows = db.fetchall(query, ("open",))
+        return [cls._from_row(row) for row in rows]
+
+    @classmethod
+    def _from_row(cls, row):
+        job = cls.__new__(cls)
+        Entity.__init__(job, id=row["id"], created_at=row["created_at"])
+        job._title = row["title"]
+        job._company = row["company"]
+        job._location = row["location"]
+        job._skills_required = row.get("skills_required") or ""
+        job.description = row.get("description") or ""
+        job.posted_by = row.get("posted_by")
+        job._status = row["status"]
+        return job
+
+    def __repr__(self):
+        return f"Job({self.title!r}, {self.company!r}, {self.location!r})"
 
 
 class JobPortal(Entity):
@@ -303,3 +412,56 @@ if __name__ == "__main__":
             break
         else:
             print("Invalid option, try again.")
+
+            
+    def display_jobs(self):
+        print("\n===== Available Jobs =====")
+        try:
+            jobs = Job.load_all_open(self.db)
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return
+
+        if not jobs:
+            print("No open jobs available right now.")
+            return
+
+        for job in jobs:
+            print(f"\n[{job.id}] {job.title} — {job.company}")
+            print(f"    Location: {job.location}")
+            print(f"    Skills: {job.skills_required}")
+            if job.description:
+                print(f"    Description: {job.description}")
+
+
+    def filter_jobs(self):
+        print("\n--- Filter Jobs ---")
+        location_filter = input("Location (leave blank to skip): ").strip().lower()
+        skill_filter = input("Skill keyword (leave blank to skip): ").strip().lower()
+
+        try:
+            jobs = Job.load_all_open(self.db)
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return
+
+        results = []
+        for job in jobs:
+            if location_filter and location_filter not in job.location.lower():
+                continue
+            if skill_filter and skill_filter not in job.skills_as_list() and \
+               skill_filter not in job.skills_required.lower():
+                continue
+            results.append(job)
+
+        if not results:
+            print("No jobs match your filters.")
+            return
+
+        print(f"\n===== {len(results)} Matching Job(s) =====")
+        for job in results:
+            print(f"\n[{job.id}] {job.title} — {job.company}")
+            print(f"    Location: {job.location}")
+            print(f"    Skills: {job.skills_required}")
+
+    

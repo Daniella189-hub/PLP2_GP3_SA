@@ -1,9 +1,7 @@
 #!/usr/bin/python3
 
-import os
-import re
-import shutil
 import hashlib
+import re
 from datetime import datetime
 
 import mysql.connector
@@ -18,11 +16,11 @@ from Repositories import (
 
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", "3306")),
-    "user": os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "database": os.getenv("DB_NAME", "job_portal"),
+        "host": "mysql-23b50bcb-alustudent-6939.c.aivencloud.com",
+        "port": 23055,
+        "user": "avnadmin",
+        "password": "AVNS_ywwObOm4Kx5b-QmW0AQ",
+        "database": "job_portal",
 }
 
 
@@ -127,9 +125,16 @@ class User(Entity):
 
     @password.setter
     def password(self, value):
+        if isinstance(value, str) and len(value) == 64 and \
+                re.fullmatch(r"[0-9a-f]{64}", value):
+            self._password_hash = value
+            return
         if not value or len(value) < 4:
             raise ValueError("Password must be at least 4 characters.")
         self._password_hash = hashlib.sha256(value.encode()).hexdigest()
+    @property
+    def password_hash(self):
+        return self._password_hash
 
     @property
     def role(self):
@@ -153,26 +158,26 @@ class User(Entity):
         return f"User({self.full_name!r}, {self.email!r}, role={self.role!r})"
 
 
+        
 ## ------CLASS JOB------
 class Job(Entity):
+
     """
-    Matches the columns actually created in Schema.sql and expected by
-    JobRepository in repositories.py: title, company, location, category,
-    description, requirements, posted_at.
+      Matches the columns actually created in Schema.sql and expected by
+      JobRepository in repositories.py: title, company, location, category,
+       description, requirements, posted_at.
     """
     VALID_STATUSES = ("open", "closed")
 
-    def __init__(self, title, company, location, category="",
-                 description="", requirements="", skills_required="",
-                 posted_by=None, status="open", id=None, created_at=None):
+    def __init__(self, title, company, location, category ="",
+                 description="", requirements="", posted_by=None, status="open",
+                 id=None, created_at=None):
         super().__init__(id, created_at)
         self.title = title
         self.company = company
         self.location = location
-        self.category = category
-        self.description = description
-        self.requirements = requirements
         self.skills_required = skills_required
+        self.description = description
         self.posted_by = posted_by
         self.status = status
 
@@ -205,11 +210,11 @@ class Job(Entity):
         if not value or not value.strip():
             raise ValueError("Location cannot be empty.")
         self._location = value.strip()
-
+        
     def requirements_as_list(self):
         return [r.strip().lower() for r in (self.requirements or "").split(",")
                 if r.strip()]
-
+        
     @property
     def category(self):
         return self._category
@@ -227,12 +232,13 @@ class Job(Entity):
         if value not in self.VALID_STATUSES:
             raise ValueError(f"status must be one of {self.VALID_STATUSES}")
         self._status = value
+        
 
     def __repr__(self):
         return f"Job({self.title!r}, {self.company!r}, {self.location!r})"
 
-# -----CLASS JOBAPPLICATION------
-class JobApplication(Entity):
+# -----CLASS APPLICATIONS------
+class applications(Entity):
     VALID_STATUSES = ("pending", "accepted", "rejected", "withdrawn")
 
     def __init__(self, user_id, job_id, status="pending", cv_path=None,
@@ -250,30 +256,28 @@ class JobApplication(Entity):
 
 # ------CLASS NOTIFICATION--------
 class Notification(Entity):
-
-    def __init__(self, user_id, message, is_read=False, id=None, created_at=None):
+    def __init__(self, user_id, message, is_read=False, id=None,
+                 created_at=None):
         super().__init__(id, created_at)
         self.user_id = user_id
         self.message = message
         self.is_read = bool(is_read)
-
+ 
     def __repr__(self):
         flag = "read" if self.is_read else "unread"
         return f"Notification(user_id={self.user_id}, {flag}, {self.message!r})"
-
-
-CV_UPLOAD_DIR = "uploaded_cvs"
-ALLOWED_CV_EXTENSIONS = (".pdf", ".doc", ".docx")
-
-
-# ----CLASS PORTAL(connection to the repositories file)------
+    
+    CV_UPLOAD_DIR = "uploaded_cvs"
+    ALLOWED_CV_EXTENSIONS = (".pdf", ".doc", ".docx")
+    
+# ----CLASS PORTAL(connection to the repositories file and the main class we are running)------
 
 class JobPortal(Entity):
     def __init__(self):
         self.db = Database()
         self.users = UserRepository(self.db, User)
         self.jobs = JobRepository(self.db, Job)
-        self.applications = ApplicationRepository(self.db, JobApplication)
+        self.applications = ApplicationRepository(self.db, applications)
         self.notifications = NotificationRepository(self.db, Notification)
         self.current_user = None
 
@@ -282,7 +286,8 @@ class JobPortal(Entity):
             print(f"{field_name} cannot be empty.")
             return False
         return True
-# --1st choice--
+        
+# --1 create profile--
     def create_profile(self):
         print("\n--- Create Your Profile ---")
         full_name = input("Full name: ")
@@ -307,7 +312,7 @@ class JobPortal(Entity):
             print(f"Could not create profile: {e}")
         except DatabaseError as e:
             print(f"Database error: {e}")
-# --2nd chice--
+# --2 load profile--
     def load_profile(self):
         print("\n--- Load Your Profile ---")
         email = input("Email: ")
@@ -330,7 +335,8 @@ class JobPortal(Entity):
         self.current_user = user
         print(f"Welcome back, {user.full_name}!")
         return user
-# --3rd choice--
+        
+# --3 display jobs--
     def display_jobs(self):
         print("\n===== Available Jobs =====")
         try:
@@ -353,14 +359,21 @@ class JobPortal(Entity):
                 print(f"    Description: {job.description}")
 
 # --4 filter jobs--
+
     def filter_jobs(self):
         print("\n--- Filter Jobs ---")
         location_filter = input("Location (leave blank to skip): ").strip().lower()
         try:
-            results = self.jobs.search(location_filter)
+            jobs = self.jobs.search(location_filter)
         except DatabaseError as e:
             print(f"Database error: {e}")
             return
+
+        results = []
+        for job in jobs:
+            if location_filter and location_filter not in job.location.lower():
+                continue
+            results.append(job)
 
         if not results:
             print("No jobs match your filters.")
@@ -371,7 +384,8 @@ class JobPortal(Entity):
             print(f"\n[{job.id}] {job.title} — {job.company}")
             print(f"    Location: {job.location}")
             
-    # --5th apply for job--
+    # --5 apply for jobs--
+    
     def apply_for_job(self):
         print("\n--- Apply for a Job ---")
 
@@ -399,129 +413,23 @@ class JobPortal(Entity):
             return
 
 
-        already_applied = any(
+        if self.applications.get_by_id is not None and any(
             a["job_id"] == job_id
             for a in self.applications.get_for_user(self.current_user.id)
-        )
-        if already_applied:
+        ):
             print("You already applied for this job.")
             return
 
         cv_path = input("Enter path to your CV file (or press Enter to skip): ").strip()
         cv_path = cv_path if cv_path else None
 
-        new_application = JobApplication(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
+        new_application = applications(user_id=self.current_user.id, job_id=job_id, cv_path=cv_path)
 
         self.applications.create(new_application)
         print(f"Application submitted for '{selected_job.title}' at {selected_job.company}!")
-# --6th choice--
-    def view_my_applications(self):
-        print("\n--- My Applications ---")
+        
+        
 
-        if self.current_user is None:
-            print("You must be logged in to view your applications.")
-            return
-
-        my_apps = self.applications.get_for_user(self.current_user.id)
-        if not my_apps:
-            print("You haven't applied to any jobs yet.")
-            return
-
-        for app in my_apps:
-            print(f"Application ID: {app['id']} | {app['job_title']} at {app['job_company']} | Status: {app['status']}")
-
-    # --7th withdraw application-- (Desire De Dieu)
-    def withdraw_application(self):
-        print("\n--- Withdraw an Application ---")
-
-        if self.current_user is None:
-            print("You must be logged in to withdraw an application.")
-            return
-
-        my_apps = self.applications.get_for_user(self.current_user.id)
-        if not my_apps:
-            print("You have no applications to withdraw.")
-            return
-
-        print("\nYour applications:")
-        for app in my_apps:
-            print(f"ID: {app['id']} | {app['job_title']} at "
-                  f"{app['job_company']} | Status: {app['status']}")
-
-        raw_id = input("\nEnter Application ID to withdraw (or blank to cancel): ").strip()
-        if not raw_id:
-            return
-        if not raw_id.isdigit():
-            print("Application ID must be a number.")
-            return
-        app_id = int(raw_id)
-
-        confirm = input(
-            f"Withdraw application {app_id}? This cannot be undone. (yes/no): "
-        ).strip().lower()
-        if confirm != "yes":
-            print("Withdrawal cancelled.")
-            return
-
-        try:
-            cursor = self.db.execute(
-                """
-                UPDATE applications
-                SET status = 'withdrawn', decision_at = CURRENT_TIMESTAMP
-                WHERE id = %s AND user_id = %s AND status = 'pending'
-                """,
-                (app_id, self.current_user.id),
-                commit=True,
-            )
-        except DatabaseError as e:
-            print(f"Database error: {e}")
-            return
-
-        if cursor.rowcount == 0:
-            print(
-                "[INFO] No matching pending application found under your "
-                "account (it may already be decided, withdrawn, or not yours)."
-            )
-        else:
-            print(f"Application {app_id} has been withdrawn.")
-
-    # --11th delete account permanently-- (Desire De Dieu)
-    def delete_account(self):
-        print("\n--- Delete Account Permanently ---")
-
-        if self.current_user is None:
-            print("You must be logged in to delete your account.")
-            return
-
-        print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
-
-        first_confirm = input(
-            "This will permanently delete your account and ALL your "
-            "applications and notifications. Continue? (yes/no): "
-        ).strip().lower()
-        if first_confirm != "yes":
-            print("Account deletion cancelled.")
-            return
-
-        email_confirmation = input(
-            "Type your email address to confirm permanent deletion: "
-        ).strip().lower()
-        if email_confirmation != self.current_user.email.lower():
-            print("Email did not match. Account deletion cancelled.")
-            return
-
-        try:
-            self.db.execute(
-                "DELETE FROM users WHERE id = %s",
-                (self.current_user.id,),
-                commit=True,
-            )
-        except DatabaseError as e:
-            print(f"Database error: {e}")
-            return
-
-        print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
-        self.current_user = None
 
     def upload_cv(self):
         if self.current_user is None:
@@ -554,8 +462,99 @@ class JobPortal(Entity):
 
         print(f"CV uploaded successfully -> {dest_path}")
         return dest_path
+        
+# --6 view my applications--
+    def view_my_applications(self):
+        print("\n--- My Applications ---")
 
-    # --10 Admin Review Applications--
+        if self.current_user is None:
+            print("You must be logged in to view your applications.")
+            return
+
+        my_apps = self.applications.get_for_user(self.current_user.id)
+        if not my_apps:
+            print("You haven't applied to any jobs yet.")
+            return
+
+        for app in my_apps:
+            print(f"Application ID: {app['id']} | {app['job_title']} at {app['job_company']} | Status: {app['status']}")
+
+# --7 withdraw aplication--   
+    def withdraw_application(self, application_id):
+
+        cursor = self.db.execute(
+            """
+            UPDATE applications
+            SET status = 'withdrawn', decision_at = CURRENT_TIMESTAMP
+            WHERE id = %s AND user_id = %s AND status = 'pending'
+            """,
+            (application_id, self.user_id),
+            commit=True,
+        )
+
+        if cursor.rowcount == 0:
+            print(
+                "[INFO] No matching pending application found under your "
+                "account (it may already be decided, withdrawn, or not yours)."
+            )
+            return False
+
+        print(f"Application {application_id} has been withdrawn.")
+        return True
+    
+# --8 view notifications-- 
+    def view_notifications(self):
+        """Show the logged-in user's notifications, newest first."""
+        if self.current_user is None:
+            print("You need to be logged in to view notifications.")
+            return
+
+        items = self.notifications.get_for_user(self.current_user.id)
+        if not items:
+                print("You have no notifications.")
+                return
+        print("\n--Notifications ---")
+        for note in items:
+            flag = " " if note.is_read else "*"
+            print(f"[{flag}] {note.created_at} - {note.message}")
+        print("(* = unread)")
+
+# --8 mark_notifications_read:
+    def mark_notifications_read(self):
+        if self.current_user is None:
+            return
+        self.notifications.mark_all_read(self.current_user.id)
+
+#--9send job alerts--
+    def send_job_alerts(self):
+        if self.current_user is None or not self.current_user.is_admin:
+            print("Only an admin can send job alerts.")
+            return
+
+        recent_jobs = self.jobs.most_recent(limit=5)
+        if not recent_jobs:
+            print("No recent jobs to alert users about.")
+            return
+
+        all_users = self.db.fetchall(
+            "SELECT id, skills FROM users WHERE role = %s", ("job_seeker",)
+    )
+
+        sent = 0
+        for user_row in all_users:
+            user_skills = [s.strip().lower() for s in (user_row["skills"] or "").split(",") if s.strip()]
+            if not user_skills:
+                continue
+            for job in recent_jobs:
+                job_text = f"{job.title} {job.category} {job.requirements}".lower()
+                if any(skill in job_text for skill in user_skills):
+                    message = f"New job matching your skills: '{job.title}' at {job.company}."
+                    self.notifications.create(Notification(user_row["id"], message))
+                    sent += 1
+
+        print(f"Sent {sent} job alert notification(s).") 
+
+# --10 Admin Review Applications--
     def admin_review_applications(self):
         if self.current_user is None or not self.current_user.is_admin:
             print("Only an admin can review applications.")
@@ -603,58 +602,33 @@ class JobPortal(Entity):
 
         print(f"Application {app_id} marked as {application.status}. Applicant notified.")
 
-    # --8 view notifications-- 
-    def view_notifications(self):
-        """Show the logged-in user's notifications, newest first."""
-        if self.current_user is None:
-            print("You need to be logged in to view notifications.")
-            return
-
-        items = self.notifications.get_for_user(self.current_user.id)
-        if not items:
-            print("You have no notifications.")
-            return
-
-        print("\n--- Notifications ---")
-        for note in items:
-            flag = " " if note.is_read else "*"
-            print(f"[{flag}] {note.created_at} - {note.message}")
-        print("(* = unread)")
-
-    # --8 mark_notifications_read:
-    def mark_notifications_read(self):
-        if self.current_user is None:
-            return
-        self.notifications.mark_all_read(self.current_user.id)
-
-    #--9send job alerts--
-    def send_job_alerts(self):
-        if self.current_user is None or not self.current_user.is_admin:
-            print("Only an admin can send job alerts.")
-            return
-
-        recent_jobs = self.jobs.most_recent(limit=5)
-        if not recent_jobs:
-            print("No recent jobs to alert users about.")
-            return
-
-        all_users = self.db.fetchall(
-            "SELECT id, skills FROM users WHERE role = %s", ("job_seeker",)
+# --11 delete account permanently--
+    def get_account(self):
+        """Fetch this user's own account row, or None if it doesn't exist."""
+        return self.db.fetchone(
+            "SELECT id, full_name, email FROM users WHERE id = %s",
+            (self.user_id,),
         )
 
-        sent = 0
-        for user_row in all_users:
-            user_skills = [s.strip().lower() for s in (user_row["skills"] or "").split(",") if s.strip()]
-            if not user_skills:
-                continue
-            for job in recent_jobs:
-                job_text = f"{job.title} {job.category} {job.requirements}".lower()
-                if any(skill in job_text for skill in user_skills):
-                    message = f"New job matching your skills: '{job.title}' at {job.company}."
-                    self.notifications.create(Notification(user_row["id"], message))
-                    sent += 1
+    def delete_account(self, email_confirmation):
 
-        print(f"Sent {sent} job alert notification(s).")
+        account = self.get_account()
+        if account is None:
+            print("[ERROR] Account not found.")
+            return False
+
+        if email_confirmation.strip().lower() != account["email"].lower():
+            print("Email did not match. Account deletion cancelled.")
+            return False
+
+        self.db.execute(
+            "DELETE FROM users WHERE id = %s",
+            (self.user_id,),
+            commit=True,
+        )
+        print(f"\nAccount for {account['full_name']} has been permanently deleted.")
+        return True
+
 
 
 if __name__ == "__main__":
@@ -713,3 +687,8 @@ if __name__ == "__main__":
             break
         else:
             print("Invalid option, try again.")
+
+            
+   
+
+    

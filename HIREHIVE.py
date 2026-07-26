@@ -264,19 +264,9 @@ class Notification(Entity):
     def __repr__(self):
         flag = "read" if self.is_read else "unread"
         return f"Notification(user_id={self.user_id}, {flag}, {self.message!r})"
-<<<<<<< HEAD
-=======
-    
-    
+
+
 # ----CLASS PORTAL(connection to the repositories file and the main class we are running)------
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
-
-
-CV_UPLOAD_DIR = "uploaded_cvs"
-ALLOWED_CV_EXTENSIONS = (".pdf", ".doc", ".docx")
-
-
-# ----CLASS PORTAL
 class JobPortal(Entity):
     CV_UPLOAD_DIR = "uploaded_cvs"
     ALLOWED_CV_EXTENSIONS = (".pdf", ".doc", ".docx")
@@ -327,11 +317,7 @@ class JobPortal(Entity):
         except DatabaseError as e:
             print(f"Database error: {e}")
 
-<<<<<<< HEAD
-    # --2nd choice--
-=======
 # --2 load profile--
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
     def load_profile(self):
         print("\n--- Load Your Profile ---")
         email = input("Email: ")
@@ -355,12 +341,9 @@ class JobPortal(Entity):
         print(f"Welcome back, {user.full_name}!")
         return user
 
-<<<<<<< HEAD
-    # --3rd choice--
-=======
+
         
 # --3 display jobs--
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
     def display_jobs(self):
         print("\n===== Available Jobs =====")
         try:
@@ -399,14 +382,8 @@ class JobPortal(Entity):
         for job in results:
             print(f"\n[{job.id}] {job.title} — {job.company}")
             print(f"    Location: {job.location}")
-<<<<<<< HEAD
-
-    # --5th apply for job--
-=======
             
  # --5 apply for jobs--
-    
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
     def apply_for_job(self):
         print("\n--- Apply for a Job ---")
 
@@ -467,64 +444,13 @@ class JobPortal(Entity):
         for app in my_apps:
             print(f"Application ID: {app['id']} | {app['job_title']} at "
                   f"{app['job_company']} | Status: {app['status']}")
-
-<<<<<<< HEAD
-    # --7th withdraw application-- 
-    def withdraw_application(self):
-        print("\n--- Withdraw an Application ---")
-=======
 # --7 withdraw aplication--   
     def withdraw_application(self):
         print("\n---Withdraw Application---")
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
 
         if self.current_user is None:
             print("You must be logged in to withdraw an application.")
             return
-<<<<<<< HEAD
-
-        my_apps = self.applications.get_for_user(self.current_user.id)
-        if not my_apps:
-            print("You have no applications to withdraw.")
-            return
-
-        print("\nYour applications:")
-        for app in my_apps:
-            print(f"ID: {app['id']} | {app['job_title']} at "
-                  f"{app['job_company']} | Status: {app['status']}")
-
-        raw_id = input("\nEnter Application ID to withdraw (or blank to cancel): ").strip()
-        if not raw_id:
-            return
-        if not raw_id.isdigit():
-            print("Application ID must be a number.")
-            return
-        app_id = int(raw_id)
-
-        confirm = input(
-            f"Withdraw application {app_id}? This cannot be undone. (yes/no): "
-        ).strip().lower()
-        if confirm != "yes":
-            print("Withdrawal cancelled.")
-            return
-
-        try:
-            # Ownership check (user_id) + only 'pending' applications can be
-            # withdrawn, both enforced in the WHERE clause.
-            cursor = self.db.execute(
-                """
-                UPDATE applications
-                SET status = 'withdrawn', decision_at = CURRENT_TIMESTAMP
-                WHERE id = %s AND user_id = %s AND status = 'pending'
-                """,
-                (app_id, self.current_user.id),
-                commit=True,
-            )
-        except DatabaseError as e:
-            print(f"Database error: {e}")
-            return
-
-=======
  
         try:
             application_id = int(input("Enter the Application ID to withdraw: "))
@@ -542,25 +468,18 @@ class JobPortal(Entity):
             commit=True,
         )
  
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
         if cursor.rowcount == 0:
             print(
                 "[INFO] No matching pending application found under your "
                 "account (it may already be decided, withdrawn, or not yours)."
             )
-<<<<<<< HEAD
-        else:
-            print(f"Application {app_id} has been withdrawn.")
 
-    # --8th view notifications--
-=======
             return False
  
         print(f"Application {application_id} has been withdrawn.")
         return True   
 
 # --8 view notifications-- 
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
     def view_notifications(self):
         if self.current_user is None:
             print("You need to be logged in to view notifications.")
@@ -581,7 +500,7 @@ class JobPortal(Entity):
             return
         self.notifications.mark_all_read(self.current_user.id)
 
-    # --9th send job alerts--
+# --9th send job alerts--
     def send_job_alerts(self):
         if self.current_user is None or not self.current_user.is_admin:
             print("Only an admin can send job alerts.")
@@ -610,7 +529,7 @@ class JobPortal(Entity):
 
         print(f"Sent {sent} job alert notification(s).")
 
-    # --10th admin review applications--
+# --10th admin review applications--
     def admin_review_applications(self):
         if self.current_user is None or not self.current_user.is_admin:
             print("Only an admin can review applications.")
@@ -658,15 +577,6 @@ class JobPortal(Entity):
 
         print(f"Application {app_id} marked as {application.status}. Applicant notified.")
 
-<<<<<<< HEAD
-    # --11th delete account permanently-- 
-    def delete_account(self):
-        print("\n--- Delete Account Permanently ---")
-
-        if self.current_user is None:
-            print("You must be logged in to delete your account.")
-            return
-=======
 # --11 delete account permanently--
     def get_account(self):
         """Fetch this user's own account row, or None if it doesn't exist."""
@@ -679,47 +589,18 @@ class JobPortal(Entity):
         if self.current_user is None:
             print("You must be logged in to delete your account.")
             return False
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
 
         print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
 
-<<<<<<< HEAD
-        first_confirm = input(
-            "This will permanently delete your account and ALL your "
-            "applications and notifications. Continue? (yes/no): "
-        ).strip().lower()
-        if first_confirm != "yes":
-            print("Account deletion cancelled.")
-            return
 
-        email_confirmation = input(
-            "Type your email address to confirm permanent deletion: "
-        ).strip().lower()
-        if email_confirmation != self.current_user.email.lower():
-=======
         email_confirmation = input(
             "Type your account email to confirm deletion: "
         ).strip()
 
         if email_confirmation.strip().lower() != account["email"].lower():
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
             print("Email did not match. Account deletion cancelled.")
             return
 
-<<<<<<< HEAD
-        try:
-            # applications.user_id and notifications.user_id both have
-            # ON DELETE CASCADE in schema.sql, so removing the users row
-            # cleans up both automatically. No manual cleanup needed.
-            self.db.execute(
-                "DELETE FROM users WHERE id = %s",
-                (self.current_user.id,),
-                commit=True,
-            )
-        except DatabaseError as e:
-            print(f"Database error: {e}")
-            return
-=======
         self.db.execute(
             "DELETE FROM users WHERE id = %s",
             (self.current_user.id,),
@@ -728,7 +609,6 @@ class JobPortal(Entity):
         print(f"\nAccount for {account['full_name']} has been permanently deleted.")
         self.current_user = None
         return True
->>>>>>> 4c6bfba (debug the code and fixed the database connection to the main file HIREHIVE)
 
         print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
         self.current_user = None

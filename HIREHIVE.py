@@ -311,7 +311,7 @@ class JobPortal(Entity):
         print(f"Welcome back, {user.full_name}!")
         return user
 # --3rd choice--
- def display_jobs(self):
+    def display_jobs(self):
         print("\n===== Available Jobs =====")
         try:
             jobs = self.jobs.get_all()

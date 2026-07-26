@@ -167,8 +167,10 @@ class Job(Entity):
         self.title = title
         self.company = company
         self.location = location
-        self.skills_required = skills_required
+        self.category = category
         self.description = description
+        self.requirements = requirements
+        self.skills_required = skills_required
         self.posted_by = posted_by
         self.status = status
 

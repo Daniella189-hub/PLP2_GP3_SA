@@ -660,7 +660,7 @@ class JobPortal(Entity):
             print("Account not found.")
             return False
 
-        print(f"\nAccount found: {account[;full_name']} ({account['email']})")
+        print(f"\nAccount found: {account['full_name']} ({account['email']})")
 
 
         email_confirmation = input(

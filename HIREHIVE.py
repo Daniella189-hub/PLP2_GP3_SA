@@ -5,6 +5,7 @@ import re
 import shutil
 import hashlib
 from datetime import datetime
+from getpass import getpass
 
 import mysql.connector
 from mysql.connector import Error as MySQLError
@@ -284,7 +285,7 @@ class JobPortal(Entity):
         print("\n--- Create Your Profile ---")
         full_name = input("Full name: ")
         email = input("Email: ")
-        password = input("Password: ")
+        password = getpass("Password: ")
         skills = input("Skills (comma-separated): ")
         location = input("Location: ")
 
@@ -315,7 +316,7 @@ class JobPortal(Entity):
     def load_profile(self):
         print("\n--- Load Your Profile ---")
         email = input("Email: ")
-        password = input("Password: ")
+        password = getpass("Password: ")
 
         try:
             user = self.users.get_by_email(email.strip().lower())
@@ -362,7 +363,7 @@ class JobPortal(Entity):
         ]
         for job in sample_jobs:
             self.jobs.create(job)
-        print(f"Seeded {len(sample_jobs)} sample job(s).")
+        print(f" {len(sample_jobs)} sample job(s) available. chose --choice=3.1-- to display them")
 
 
         
@@ -387,7 +388,7 @@ class JobPortal(Entity):
             if job.description:
                 print(f"    Description: {job.description}")
 
-# --4th filter jobs--
+# --4 filter jobs--
     def filter_jobs(self):
         print("\n--- Filter Jobs ---")
         location_filter = input("Location (leave blank to skip): ").strip().lower()
@@ -449,6 +450,9 @@ class JobPortal(Entity):
             return
         
         cv_path = self.upload_cv()
+        if cv_path is None:
+            print("Application cancelled - a valid CV is require to apply.")
+            return
 
         new_application = applications(
             user_id=self.current_user.id, job_id=job_id, cv_path=cv_path
@@ -463,36 +467,39 @@ class JobPortal(Entity):
         if self.current_user is None:
             print("You need to be logged in to upload a CV.")
             return None
+        while True:
 
-        path = input(
-            "Path to your CV file (.pdf, .doc, .docx), or blank to skip: "
+
+            path = input(
+                "Path to your CV file (.pdf, .doc, .docx), or blank to skip: "
         ).strip()
-        if not path:
-            return None
+            if not path:
+                return None
 
-        if not os.path.isfile(path):
-            print("That file doesn't exist. Please check the path and try again.")
-            return None
+            if not os.path.isfile(path):
+                print("That file doesn't exist. Please check the path and try again.")
+                return None
 
-        ext = os.path.splitext(path)[1].lower()
-        if ext not in self.ALLOWED_CV_EXTENSIONS:
-            print(f"Unsupported file type '{ext}'. "
-                  f"Allowed types: {self.ALLOWED_CV_EXTENSIONS}")
-            return None
+            ext = os.path.splitext(path)[1].lower()
+            if ext not in self.ALLOWED_CV_EXTENSIONS:
+                print(f"Unsupported file type '{ext}'. "
+                      f"Allowed types: {self.ALLOWED_CV_EXTENSIONS}")
 
-        os.makedirs(self.CV_UPLOAD_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
-        dest_path = os.path.join(self.CV_UPLOAD_DIR, dest_name)
+                continue
 
-        try:
-            shutil.copyfile(path, dest_path)
-        except OSError as exc:
-            print(f"Could not save CV: {exc}")
-            return None
+            os.makedirs(self.CV_UPLOAD_DIR, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
+            dest_path = os.path.join(self.CV_UPLOAD_DIR, dest_name)
 
-        print(f"CV uploaded successfully -> {dest_path}")
-        return dest_path
+            try:
+                shutil.copyfile(path, dest_path)
+            except OSError as exc:
+                print(f"Could not save CV: {exc}")
+                continue
+
+            print(f"CV uploaded successfully -> {dest_path}")
+            return dest_path
 
 # --6 view my application--
     def view_my_applications(self):
@@ -510,6 +517,7 @@ class JobPortal(Entity):
         for app in my_apps:
             print(f"Application ID: {app['id']} | {app['job_title']} at "
                   f"{app['job_company']} | Status: {app['status']}")
+
 # --7 withdraw aplication--   
     def withdraw_application(self):
         print("\n---Withdraw Application---")

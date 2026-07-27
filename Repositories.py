@@ -12,6 +12,7 @@ row into the matching model object from job_portal.py.
 from abc import ABC, abstractmethod
 
 
+
 class BaseRepository(ABC):
     table_name = None
 
@@ -35,9 +36,16 @@ class UserRepository(BaseRepository):
     table_name = "users"
 
     def _row_to_model(self, row):
-        return self.model_cls(row["full_name"], row["email"], row["password"], row["skills"],
-                    row["location"], row["role"], row["id"], row["created_at"])
-
+        user = self.model_cls.__new__(self.model_cls)
+        user._id = row["id"]
+        user._created_at = row["created_at"]
+        user.full_name = row["full_name"]
+        user.email = row["email"]
+        user._password_hash = row["password"]
+        user.skills = row["skills"]
+        user.location = row["location"]
+        user.role = row["role"]
+        return user
     def create(self, user):
         self.db.execute(
             """INSERT INTO users (full_name, email, password, skills, location, role)

@@ -62,12 +62,3 @@ admins can review applications, accept/reject them, and send job alerts.
 | Desire De Dieu | Withdraw/delete application and delete account permanently |
 | Belin | Main menu, application controller, database integration |
 
-## technology used
- Python3 
- MySQL
- Object Oriented Programming
- GitHub
-
-
-
-

@@ -683,7 +683,7 @@ class JobPortal(Entity):
 if __name__ == "__main__":
     try:
         portal = JobPortal()
-        portal.create_sample_jobs()
+        portal.the_sample_jobs()
     except DatabaseError as exc:
         print(f"Could not start: {exc}")
         raise SystemExit(1)

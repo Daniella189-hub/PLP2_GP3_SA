@@ -46,7 +46,9 @@ admins can review applications, accept/reject them, and send job alerts.
 - `Repositories.py` — all SQL queries in the app, organized as one
   repository class per table
 - `Schema.sql` — MySQL table definitions (`users`, `jobs`, `applications`,
-  `notifications`)
+  notifications
+
+
 
 ## Team Contributions
 
@@ -59,6 +61,12 @@ admins can review applications, accept/reject them, and send job alerts.
 | Kelvin | Accept/reject logic, CV upload, notification messages |
 | Desire De Dieu | Withdraw/delete application and delete account permanently |
 | Belin | Main menu, application controller, database integration |
+
+## technology used
+ Python3 
+ MySQL
+ Object Oriented Programming
+ GitHub
 
 
 

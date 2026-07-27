@@ -16,4 +16,11 @@ My code:
   user (`current_user`) so every feature knows who's active
 - Acts as the shared class that all teammates' methods attach to
   (profile creation, job listings, applications, notifications, etc.)
+  
+### 3. Main Menu
+My code:
+- Runs the main loop (`run()`) that prints the 13-option menu and routes
+  each choice to the matching method
+- Handles login/logout, and exits by closing the database connection
+  gracefully
 

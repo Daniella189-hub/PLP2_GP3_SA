@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import os
 import re
 import shutil
@@ -16,20 +15,14 @@ from Repositories import (
     NotificationRepository,
 )
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # dotenv is optional; falls back to real environment variables
-
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", "3306")),
-    "user": os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "database": os.getenv("DB_NAME", "job_portal"),
-}
+    "host":"mysql-23b50bcb-alustudent-6939.c.aivencloud.com",
+    "port": 23055,
+    "user": "avnadmin",
+    "password": "AVNS_ywwObOm4Kx5b-QmW0AQ" ,
+    "database": "job_portal"
+    }
 
 
 class DatabaseError(Exception):
@@ -47,6 +40,13 @@ class Database:
 
     def execute(self, query, params=None, commit=False):
         try:
+            # Ping and silently reconnect if Aiven closed an idle connection.
+            self._conn.ping(reconnect=True, attempts=3, delay=2)
+        except MySQLError as exc:
+            raise DatabaseError(f"Lost connection to database: {exc}") from exc
+
+        try:
+            self._cursor = self._conn.cursor(dictionary=True)
             self._cursor.execute(query, params or ())
             if commit:
                 self._conn.commit()
@@ -137,7 +137,10 @@ class User(Entity):
         if not value or len(value) < 4:
             raise ValueError("Password must be at least 4 characters.")
         self._password_hash = hashlib.sha256(value.encode()).hexdigest()
-
+    @property
+    def password_hash(self):
+        return self._password_hash
+   
     @property
     def role(self):
         return self._role
@@ -166,8 +169,9 @@ class Job(Entity):
     VALID_STATUSES = ("open", "closed")
 
     def __init__(self, title, company, location, category="",
-                 description="", requirements="", skills_required="",
-                 posted_by=None, status="open", id=None, created_at=None):
+                 description="", requirements="",
+                 id=None, created_at=None):
+
         super().__init__(id, created_at)
         self.title = title
         self.company = company
@@ -175,9 +179,6 @@ class Job(Entity):
         self.category = category
         self.description = description
         self.requirements = requirements
-        self.skills_required = skills_required
-        self.posted_by = posted_by
-        self.status = status
 
     @property
     def title(self):
@@ -236,7 +237,7 @@ class Job(Entity):
 
 
 # -----CLASS JOB APPLICATION------
-class JobApplication(Entity):
+class applications(Entity):
     VALID_STATUSES = ("pending", "accepted", "rejected", "withdrawn")
 
     def __init__(self, user_id, job_id, status="pending", cv_path=None,
@@ -249,7 +250,7 @@ class JobApplication(Entity):
         self.decision_at = decision_at
 
     def __repr__(self):
-        return (f"JobApplication(user_id={self.user_id}, "
+        return (f"applications(user_id={self.user_id}, "
                 f"job_id={self.job_id}, status={self.status!r})")
 
 
@@ -275,7 +276,7 @@ class JobPortal(Entity):
         self.db = Database()
         self.users = UserRepository(self.db, User)
         self.jobs = JobRepository(self.db, Job)
-        self.applications = ApplicationRepository(self.db, JobApplication)
+        self.applications = ApplicationRepository(self.db, applications)
         self.notifications = NotificationRepository(self.db, Notification)
         self.current_user = None
 
@@ -341,6 +342,35 @@ class JobPortal(Entity):
         print(f"Welcome back, {user.full_name}!")
         return user
 
+    def create_sample_jobs(self):
+        """
+        Seed a few sample jobs using the same self.jobs (JobRepository)
+        that display_jobs() and filter_jobs() already read from.
+        JobRepository.create() skips duplicates automatically, so this
+        is safe to call more than once.
+        """
+        sample_jobs = [
+            Job(
+                title="Software Developer",
+                company="TechX",
+                location="Kigali",
+                category="IT",
+                description="Develop software applications.",
+                requirements="Python, OOP, SQL",
+            ),
+            Job(
+                title="Data Analyst",
+                company="DataHub",
+                location="Remote",
+                category="Data",
+                description="Analyze datasets.",
+                requirements="Excel, SQL, Python",
+            ),
+        ]
+        for job in sample_jobs:
+            self.jobs.create(job)
+        print(f"Seeded {len(sample_jobs)} sample job(s).")
+
 
         
 # --3 display jobs--
@@ -364,15 +394,22 @@ class JobPortal(Entity):
             if job.description:
                 print(f"    Description: {job.description}")
 
-    # --4th filter jobs--
+# --4th filter jobs--
     def filter_jobs(self):
         print("\n--- Filter Jobs ---")
         location_filter = input("Location (leave blank to skip): ").strip().lower()
         try:
-            results = self.jobs.search(location_filter)
+            jobs = self.jobs.search(location_filter)
         except DatabaseError as e:
             print(f"Database error: {e}")
             return
+
+
+        results = []
+        for job in jobs:
+            if location_filter and location_filter not in job.location.lower():
+                continue
+            results.append(job)
 
         if not results:
             print("No jobs match your filters.")
@@ -417,18 +454,54 @@ class JobPortal(Entity):
         if already_applied:
             print("You already applied for this job.")
             return
+        
+        cv_path = self.upload_cv()
 
-        cv_path = input("Enter path to your CV file (or press Enter to skip): ").strip()
-        cv_path = cv_path if cv_path else None
-
-        new_application = JobApplication(
+        new_application = applications(
             user_id=self.current_user.id, job_id=job_id, cv_path=cv_path
         )
-
         self.applications.create(new_application)
-        print(f"Application submitted for '{selected_job.title}' at {selected_job.company}!")
+        print(
+            f"Application submitted for '{selected_job.title}' "
+            f"at {selected_job.company}!"
+        )
 
-    # --6th choice--
+    def upload_cv(self):
+        if self.current_user is None:
+            print("You need to be logged in to upload a CV.")
+            return None
+
+        path = input(
+            "Path to your CV file (.pdf, .doc, .docx), or blank to skip: "
+        ).strip()
+        if not path:
+            return None
+
+        if not os.path.isfile(path):
+            print("That file doesn't exist. Please check the path and try again.")
+            return None
+
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in self.ALLOWED_CV_EXTENSIONS:
+            print(f"Unsupported file type '{ext}'. "
+                  f"Allowed types: {self.ALLOWED_CV_EXTENSIONS}")
+            return None
+
+        os.makedirs(self.CV_UPLOAD_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
+        dest_path = os.path.join(self.CV_UPLOAD_DIR, dest_name)
+
+        try:
+            shutil.copyfile(path, dest_path)
+        except OSError as exc:
+            print(f"Could not save CV: {exc}")
+            return None
+
+        print(f"CV uploaded successfully -> {dest_path}")
+        return dest_path
+
+# --6 view my application--
     def view_my_applications(self):
         print("\n--- My Applications ---")
 
@@ -494,7 +567,7 @@ class JobPortal(Entity):
             flag = " " if note.is_read else "*"
             print(f"[{flag}] {note.created_at} - {note.message}")
         print("(* = unread)")
-
+# --8 mark_notifications --
     def mark_notifications_read(self):
         if self.current_user is None:
             return
@@ -610,43 +683,7 @@ class JobPortal(Entity):
         self.current_user = None
         return True
 
-        print(f"\nAccount for {self.current_user.full_name} has been permanently deleted.")
-        self.current_user = None
-
-    # --CV upload helper--
-    def upload_cv(self):
-        if self.current_user is None:
-            print("You need to be logged in to upload a CV.")
-            return None
-
-        path = input("Path to your CV file (.pdf, .doc, .docx), or blank to skip: ").strip()
-        if not path:
-            return None
-
-        if not os.path.isfile(path):
-            print("That file doesn't exist. Please check the path and try again.")
-            return None
-
-        ext = os.path.splitext(path)[1].lower()
-        if ext not in ALLOWED_CV_EXTENSIONS:
-            print(f"Unsupported file type '{ext}'. Allowed types: {ALLOWED_CV_EXTENSIONS}")
-            return None
-
-        os.makedirs(CV_UPLOAD_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        dest_name = f"user{self.current_user.id}_{timestamp}{ext}"
-        dest_path = os.path.join(CV_UPLOAD_DIR, dest_name)
-
-        try:
-            shutil.copyfile(path, dest_path)
-        except OSError as exc:
-            print(f"Could not save CV: {exc}")
-            return None
-
-        print(f"CV uploaded successfully -> {dest_path}")
-        return dest_path
-
-
+      
 if __name__ == "__main__":
     try:
         portal = JobPortal()

@@ -335,7 +335,7 @@ class JobPortal(Entity):
         print(f"Welcome back, {user.full_name}!")
         return user
 
-    def create_sample_jobs(self):
+    def the_sample_jobs(self):
         """
         Seed a few sample jobs using the same self.jobs (JobRepository)
         that display_jobs() and filter_jobs() already read from.
@@ -655,17 +655,21 @@ class JobPortal(Entity):
         if self.current_user is None:
             print("You must be logged in to delete your account.")
             return False
+        account = self.get_account()
+        if account is None:
+            print("Account not found.")
+            return False
 
-        print(f"\nAccount found: {self.current_user.full_name} ({self.current_user.email})")
+        print(f"\nAccount found: {account[;full_name']} ({account['email']})")
 
 
         email_confirmation = input(
             "Type your account email to confirm deletion: "
         ).strip()
 
-        if email_confirmation.strip().lower() != account["email"].lower():
+        if email_confirmation.lower() != account["email"].lower():
             print("Email did not match. Account deletion cancelled.")
-            return
+            return False
 
         self.db.execute(
             "DELETE FROM users WHERE id = %s",
@@ -679,6 +683,7 @@ class JobPortal(Entity):
 if __name__ == "__main__":
     try:
         portal = JobPortal()
+        portal.create_sample_jobs()
     except DatabaseError as exc:
         print(f"Could not start: {exc}")
         raise SystemExit(1)
@@ -696,7 +701,8 @@ if __name__ == "__main__":
         print("\n=== HireHive ===")
         print("1. Create Profile")
         print("2. Load Profile (Login)")
-        print("3. Display Jobs")
+        print("3. sample jobs")
+        print("    3.1 Display Jobs")
         print("4. Filter Jobs")
         print("5. Apply for Job")
         print("6. View My Applications")
@@ -714,8 +720,10 @@ if __name__ == "__main__":
             portal.create_profile()
         elif choice == "2":
             portal.load_profile()
-        elif choice == "3":
+        elif choice == "3.1":
             portal.display_jobs()
+        elif choice == "3":
+            portal.the_sample_jobs()
         elif choice == "4":
             portal.filter_jobs()
         elif choice == "5":

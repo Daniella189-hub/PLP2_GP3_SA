@@ -10,4 +10,10 @@ My code:
 - Raises a custom `DatabaseError` instead of letting raw MySQL errors crash
   the app
 - Closes the connection cleanly on exit
+### 2. Application Controller — `JobPortal`
+My code:
+- Initializes the database connection and tracks the currently logged-in
+  user (`current_user`) so every feature knows who's active
+- Acts as the shared class that all teammates' methods attach to
+  (profile creation, job listings, applications, notifications, etc.)
 
